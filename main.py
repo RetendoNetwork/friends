@@ -57,7 +57,7 @@ class AuthenticationServer(authentication.AuthenticationServer):
 		server = get_user_by_name(SECURE_SERVER)
 		
 		url = common.StationURL(
-			scheme="prudps", address=os.getenv("SERVER_IP_ADDR"), port=os.getenv("AUTHENTICATION_SERVER_PORT"),
+			scheme="prudps", address=os.getenv("FRIENDS_SERVER_IP"), port=os.getenv("AUTHENTICATION_SERVER_PORT"),
 			PID = server.pid, CID = 1, type = 2,
 			sid = 1, stream = 10
 		)
@@ -72,7 +72,7 @@ class AuthenticationServer(authentication.AuthenticationServer):
 		response.pid = user.pid
 		response.ticket = self.generate_ticket(user, server)
 		response.connection_data = conn_data
-		response.server_name = "Retendo MK8 Server"
+		response.server_name = "Retendo Friends Server"
 		return response
 		
 	def generate_ticket(self, source, target):
@@ -93,55 +93,6 @@ class AuthenticationServer(authentication.AuthenticationServer):
 		ticket.internal = internal.encrypt(server_key, settings)
 		
 		return ticket.encrypt(user_key, settings)
-	
-class SecureConnectionServer(secure.SecureConnectionServer):
-    def __init__(self, sessions_db: Collection):
-        super().__init__()
-        self.connection_id_counter = 1
-        self.connection_id_lock = Lock()
-        self.sessions_db = sessions_db
-        self.clients = {}
-
-    def transform_urls(self, urls: list[common.StationURL]) -> list[str]:
-        return list(map(str, urls))
-
-    def set_session_for_pid(self, pid: int, urls: list[common.StationURL], cid: int, addr: tuple[str, int]):
-        url_list = self.transform_urls(urls)
-        self.sessions_db.update_one({"pid": pid}, {"$set": {
-            "pid": pid,
-            "cid": cid,
-            "urls": url_list,
-            "ip": addr[0],
-            "port": addr[1]
-        }}, upsert=True)
-
-    async def register(self, client: rmc.RMCClient, urls: list[common.StationURL]):
-        url_list = urls.copy()
-        public_url = url_list[0].copy()
-        async with self.connection_id_lock:
-            cid = self.connection_id_counter
-            client.client.user_cid = cid
-            self.clients[cid] = client
-
-            self.connection_id_counter += 1
-        remote_addr = client.remote_address()
-        public_url["address"] = remote_addr[0]
-        public_url["port"] = remote_addr[1]
-
-        public_url["natf"] = 0
-        public_url["natm"] = 0
-        public_url["type"] = 3
-        public_url["PID"] = client.pid()
-        url_list.append(public_url)
-        self.set_session_for_pid(client.pid(), url_list, cid, remote_addr)
-        response = rmc.RMCResponse()
-        response.result = common.Result.success()
-        response.connection_id = cid
-        response.public_station = public_url
-        return response
-
-    async def register_ex(self, client: rmc.RMCClient, urls: list[common.StationURL], login_data):
-        return self.register(client, urls)
 
 class FriendsServer(friends.FriendsServerV1):
     def __init__(self):
@@ -183,16 +134,15 @@ async def main():
 		AuthenticationServer(s)
 	]
     secure_servers = [
-		SecureConnectionServer(sessions_db="sessions"),
 		FriendsServer()
 	]
 
     server_key = derive_key(get_user_by_name(SECURE_SERVER))
-    async with rmc.serve(s, auth_servers, os.getenv("SERVER_IP_ADDR"), os.getenv("AUTHENTICATION_SERVER_PORT")):
-    	async with rmc.serve(s, secure_servers, os.getenv("SERVER_IP_ADDR"), os.getenv("SECURE_SERVER_PORT"), key=server_key):
+    async with rmc.serve(s, auth_servers, os.getenv("FRIENDS_SERVER_IP"), os.getenv("AUTHENTICATION_SERVER_PORT")):
+    	async with rmc.serve(s, secure_servers, os.getenv("FRIENDS_SERVER_IP"), os.getenv("SECURE_SERVER_PORT"), key=server_key):
             print("== Friends Server ==")
-            print("|", os.getenv("SERVER_IP_ADDR"), ":", os.getenv("AUTHENTICATION_SERVER_PORT"), "|")
-            print("|", os.getenv("SERVER_IP_ADDR"), ":", os.getenv("SECURE_SERVER_PORT"),         "|")
+            print("|", os.getenv("FRIENDS_SERVER_IP"), ":", os.getenv("AUTHENTICATION_SERVER_PORT"), "|")
+            print("|", os.getenv("FRIENDS_SERVER_IP"), ":", os.getenv("SECURE_SERVER_PORT"),         "|")
             print("==================")
             await aioconsole.ainput("Press ENTER to close..\n")
 
