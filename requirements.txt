@@ -1,0 +1,5 @@
+nintendoclients
+anynet
+python-dotenv
+aiconsole
+setuptools
