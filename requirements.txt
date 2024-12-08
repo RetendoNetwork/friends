@@ -1,5 +1,6 @@
 nintendoclients
 anynet
 python-dotenv
-aiconsole
+aioconsole
 setuptools
+pymongo
