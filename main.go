@@ -12,6 +12,7 @@ func main() {
 	wg.Add(3)
 
 	go nex.AuthenticationServer()
+	go nex.SecureServer()
 
 	wg.Wait()
 }
