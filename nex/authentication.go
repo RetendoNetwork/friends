@@ -9,9 +9,8 @@ import (
 func AuthenticationServer() {
 	AuthServe := nex.NewServer()
 
-	AuthServe.SetPRUDPVersion(1)
+	AuthServe.SetPRUDPVersion(0)
 	AuthServe.SetKeySize(16)
-	AuthServe.SetFragmentSize(962)
 	AuthServe.SetAccessKey("ridfebb9")
 
 	AuthServe.OnData("Data", func(packet *nex.PacketV0) {
